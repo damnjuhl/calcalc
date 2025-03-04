@@ -4,6 +4,7 @@ import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Line, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from 'chart.js';
+import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
@@ -23,42 +24,61 @@ const Dashboard = () => {
   // Fetch events data from API
   useEffect(() => {
     // This would be replaced with actual API call
-    const fetchEvents = async () => {
-      try {
-        // const response = await axios.get('/api/events');
-        // setEvents(response.data);
-        
-        // Mock data for now
-        setEvents([
-          {
-            id: 1,
-            title: 'Wedding at Grand Ballroom',
-            start: new Date(2025, 2, 15),
-            end: new Date(2025, 2, 16),
-            income: 3000,
-            expenses: 800
-          },
-          {
-            id: 2,
-            title: 'Corporate Event',
-            start: new Date(2025, 2, 20),
-            end: new Date(2025, 2, 20),
-            income: 2500,
-            expenses: 600
-          }
-        ]);
-        
-        setStats({
-          income: 5500,
-          expenses: 1400,
-          total: 4100
-        });
-      } catch (error) {
-        console.error('Error fetching events:', error);
-      }
-    };
+    // const fetchEvents = async () => {
+    //   try {
+    //     const response = await axios.get('/api/events');
+    //     setEvents(response.data);
+    //     
+    //     // Calculate stats
+    //     let totalIncome = 0;
+    //     let totalExpenses = 0;
+    //     
+    //     response.data.forEach(event => {
+    //       totalIncome += event.income || 0;
+    //       totalExpenses += event.expenses || 0;
+    //     });
+    //     
+    //     setStats({
+    //       income: totalIncome,
+    //       expenses: totalExpenses,
+    //       total: totalIncome - totalExpenses
+    //     });
+    //   } catch (error) {
+    //     console.error('Error fetching events:', error);
+    //   }
+    // };
     
-    fetchEvents();
+    // fetchEvents();
+    
+    // Mock data for now
+    const mockEvents = [
+      {
+        id: 1,
+        title: 'Wedding at Grand Ballroom',
+        start: new Date(2025, 2, 15),
+        end: new Date(2025, 2, 16),
+        income: 3000,
+        expenses: 800,
+        venue: 'Grand Ballroom'
+      },
+      {
+        id: 2,
+        title: 'Corporate Event',
+        start: new Date(2025, 2, 20),
+        end: new Date(2025, 2, 20),
+        income: 2500,
+        expenses: 600,
+        venue: 'City Conference Center'
+      }
+    ];
+    
+    setEvents(mockEvents);
+    
+    setStats({
+      income: 5500,
+      expenses: 1400,
+      total: 4100
+    });
   }, []);
   
   // Revenue trend chart data
@@ -110,6 +130,13 @@ const Dashboard = () => {
     // axios.post('/api/events', newEvent)
     //   .then(response => {
     //     setEvents([...events, response.data]);
+    //     
+    //     // Update stats
+    //     setStats({
+    //       income: stats.income + response.data.income,
+    //       expenses: stats.expenses + response.data.expenses,
+    //       total: stats.total + (response.data.income - response.data.expenses)
+    //     });
     //   })
     //   .catch(error => {
     //     console.error('Error adding event:', error);
@@ -140,10 +167,35 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Calendar Area */}
         <div className="lg:col-span-2 bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-          <div className="flex items-center bg-gray-700 p-4">
-            <div className="text-2xl mr-4">☰</div>
-            <h1 className="text-xl font-semibold text-white">CalCalc</h1>
-            <p className="ml-auto text-white">Google Calendar Sync</p>
+          <div className="flex items-center justify-between bg-gray-700 p-4">
+            <div className="flex items-center">
+              <div className="text-2xl mr-4">☰</div>
+              <h1 className="text-xl font-semibold text-white">CalCalc</h1>
+            </div>
+            <button
+              onClick={() => document.getElementById('sync-modal').classList.toggle('hidden')}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"
+            >
+              Google Calendar Sync
+            </button>
+            
+            {/* Google Calendar Sync Modal */}
+            <div id="sync-modal" className="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-white">Google Calendar Sync</h2>
+                  <button
+                    onClick={() => document.getElementById('sync-modal').classList.add('hidden')}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <GoogleCalendarSync />
+              </div>
+            </div>
           </div>
           <div className="p-4 h-96">
             <Calendar
