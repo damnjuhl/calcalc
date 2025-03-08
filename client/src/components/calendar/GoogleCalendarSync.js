@@ -1,13 +1,20 @@
+// src/components/calendar/GoogleCalendarSync.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const GoogleCalendarSync = () => {
+const GoogleCalendarSync = ({ onSyncComplete }) => {
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [calendars, setCalendars] = useState([]);
   const [selectedCalendar, setSelectedCalendar] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [syncDirection, setSyncDirection] = useState('both'); // 'import', 'export', or 'both'
+  const [syncFrequency, setSyncFrequency] = useState('daily'); // 'manual', 'daily', 'hourly'
+  const [syncStatus, setSyncStatus] = useState({
+    lastSync: null,
+    nextSync: null
+  });
 
   // Check if connected on component mount
   useEffect(() => {
@@ -21,8 +28,12 @@ const GoogleCalendarSync = () => {
       setMessage('Successfully connected to Google Calendar and synced events!');
       // Remove the query param from URL
       window.history.replaceState({}, document.title, window.location.pathname);
+      
+      if (onSyncComplete) {
+        onSyncComplete();
+      }
     }
-  }, []);
+  }, [onSyncComplete]);
 
   // Check if connected to Google Calendar
   const checkConnection = async () => {
@@ -39,6 +50,24 @@ const GoogleCalendarSync = () => {
         setSelectedCalendar(primaryCalendar.id);
       } else if (response.data.length > 0) {
         setSelectedCalendar(response.data[0].id);
+      }
+      
+      // Get sync settings
+      try {
+        const settingsResponse = await axios.get('/api/settings/sync');
+        if (settingsResponse.data) {
+          setSyncDirection(settingsResponse.data.syncDirection || 'both');
+          setSyncFrequency(settingsResponse.data.syncFrequency || 'daily');
+          
+          if (settingsResponse.data.lastSync) {
+            setSyncStatus({
+              lastSync: new Date(settingsResponse.data.lastSync),
+              nextSync: settingsResponse.data.nextSync ? new Date(settingsResponse.data.nextSync) : null
+            });
+          }
+        }
+      } catch (err) {
+        console.log('Could not fetch sync settings, using defaults');
       }
     } catch (err) {
       setConnected(false);
@@ -74,8 +103,27 @@ const GoogleCalendarSync = () => {
       setMessage('');
       setError('');
       
-      const response = await axios.post('/api/google/sync');
-      setMessage(response.data.message);
+      // Call appropriate sync endpoint based on direction
+      let endpoint = '/api/google/sync';
+      if (syncDirection === 'import') {
+        endpoint = '/api/google/import';
+      } else if (syncDirection === 'export') {
+        endpoint = '/api/google/export';
+      }
+      
+      const response = await axios.post(endpoint, { calendarId: selectedCalendar });
+      setMessage(response.data.message || 'Sync successful!');
+      
+      // Update sync status
+      setSyncStatus({
+        lastSync: new Date(),
+        nextSync: calculateNextSync(syncFrequency)
+      });
+      
+      // Call the onSyncComplete callback if provided
+      if (onSyncComplete) {
+        onSyncComplete();
+      }
     } catch (err) {
       setError('Failed to sync calendar. Please try again.');
       console.error('Sync error:', err);
@@ -104,10 +152,54 @@ const GoogleCalendarSync = () => {
     }
   };
 
+  // Update sync settings
+  const handleSyncSettingChange = async (setting, value) => {
+    try {
+      if (setting === 'direction') {
+        setSyncDirection(value);
+      } else if (setting === 'frequency') {
+        setSyncFrequency(value);
+      }
+      
+      // Save settings to backend
+      await axios.post('/api/settings/sync', {
+        syncDirection: setting === 'direction' ? value : syncDirection,
+        syncFrequency: setting === 'frequency' ? value : syncFrequency
+      });
+      
+      setMessage('Sync settings updated successfully!');
+      
+      // Calculate next sync time based on frequency
+      if (setting === 'frequency') {
+        setSyncStatus(prev => ({
+          ...prev,
+          nextSync: calculateNextSync(value)
+        }));
+      }
+    } catch (err) {
+      setError('Failed to update sync settings.');
+      console.error('Settings update error:', err);
+    }
+  };
+  
+  // Helper function to calculate next sync time
+  const calculateNextSync = (frequency) => {
+    const now = new Date();
+    
+    switch (frequency) {
+      case 'hourly':
+        return new Date(now.setHours(now.getHours() + 1));
+      case 'daily':
+        return new Date(now.setDate(now.getDate() + 1));
+      case 'weekly':
+        return new Date(now.setDate(now.getDate() + 7));
+      default:
+        return null; // Manual sync has no next time
+    }
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-6">
-      <h2 className="text-xl font-semibold text-white mb-4">Google Calendar Sync</h2>
-      
       {message && (
         <div className="bg-green-600 text-white p-3 rounded mb-4">
           {message}
@@ -163,6 +255,69 @@ const GoogleCalendarSync = () => {
               ))}
             </select>
           </div>
+          
+          <div className="mb-4">
+            <label className="block text-white mb-2">Sync Direction:</label>
+            <div className="flex space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="syncDirection"
+                  value="import"
+                  checked={syncDirection === 'import'}
+                  onChange={() => handleSyncSettingChange('direction', 'import')}
+                  className="mr-2"
+                />
+                <span className="text-white">Import Only</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="syncDirection"
+                  value="export"
+                  checked={syncDirection === 'export'}
+                  onChange={() => handleSyncSettingChange('direction', 'export')}
+                  className="mr-2"
+                />
+                <span className="text-white">Export Only</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="syncDirection"
+                  value="both"
+                  checked={syncDirection === 'both'}
+                  onChange={() => handleSyncSettingChange('direction', 'both')}
+                  className="mr-2"
+                />
+                <span className="text-white">Bidirectional</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-white mb-2">Sync Frequency:</label>
+            <select
+              value={syncFrequency}
+              onChange={(e) => handleSyncSettingChange('frequency', e.target.value)}
+              className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+              disabled={loading}
+            >
+              <option value="manual">Manual Only</option>
+              <option value="hourly">Every Hour</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+          
+          {syncStatus.lastSync && (
+            <div className="mb-4 text-gray-300">
+              <p>Last sync: {new Date(syncStatus.lastSync).toLocaleString()}</p>
+              {syncStatus.nextSync && syncFrequency !== 'manual' && (
+                <p>Next scheduled sync: {new Date(syncStatus.nextSync).toLocaleString()}</p>
+              )}
+            </div>
+          )}
           
           <button
             onClick={handleSync}

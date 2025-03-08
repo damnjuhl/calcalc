@@ -1,6 +1,6 @@
-// src/App.jsx
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useSearchParams, Outlet } from 'react-router-dom';
+// src/App.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
@@ -13,27 +13,53 @@ import Dashboard from './pages/Dashboard';
 import VenueManagement from './pages/VenueManagement';
 import VenueList from './components/venues/VenueList';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import CalendarView from './pages/CalendarView'; // Import the new CalendarView
 
-// New component to handle Google callback
+// Navigation component
+const Navigation = () => (
+  <nav className="bg-gray-800 text-white py-4 px-6">
+    <div className="container mx-auto flex justify-between items-center">
+      <div className="flex items-center">
+        <span className="text-xl font-bold">CalCalc</span>
+      </div>
+      <div className="flex space-x-6">
+        <a href="/dashboard" className="flex items-center space-x-1">
+          <span role="img" aria-label="dashboard">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="/calendar" className="flex items-center space-x-1">
+          <span role="img" aria-label="calendar">📅</span>
+          <span>Calendar</span>
+        </a>
+        <a href="/venues" className="flex items-center space-x-1">
+          <span role="img" aria-label="venues">🏢</span>
+          <span>Venues</span>
+        </a>
+        <a href="/analytics" className="flex items-center space-x-1">
+          <span role="img" aria-label="analytics">📈</span>
+          <span>Analytics</span>
+        </a>
+      </div>
+      <button
+        onClick={() => {
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+        }}
+        className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md"
+      >
+        Logout
+      </button>
+    </div>
+  </nav>
+);
+
+// Google callback component
 const GoogleCallback = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
- 
-  useEffect(() => {
-    // Add the syncSuccess parameter to indicate successful authentication
-    navigate('/?syncSuccess=true');
-  }, [navigate]);
+  React.useEffect(() => {
+    window.location.href = '/?syncSuccess=true';
+  }, []);
  
   return <div className="p-4 text-white">Processing Google authentication...</div>;
-};
-
-// Simplified Layout component if you don't have a Layout component
-const SimpleLayout = () => {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <Outlet />
-    </div>
-  );
 };
 
 function App() {
@@ -52,16 +78,59 @@ function App() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <SimpleLayout />
+                  <>
+                    <Navigation />
+                    <Dashboard />
+                  </>
                 </ProtectedRoute>
               }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="venues" element={<VenueList />} />
-              <Route path="analytics" element={<AnalyticsDashboard />} />
-              {/* Removed calendar and profile routes since you don't have those components yet */}
-            </Route>
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Navigation />
+                    <Dashboard />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/venues"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Navigation />
+                    <VenueManagement />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Navigation />
+                    <AnalyticsDashboard />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Navigation />
+                    <div className="container mx-auto px-4 py-8">
+                      <CalendarView />
+                    </div>
+                  </>
+                </ProtectedRoute>
+              }
+            />
            
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -19,6 +19,7 @@
         "googleapis": "^118.0.0",
         "jsonwebtoken": "^9.0.2",
         "moment": "^2.29.4",
+        "node-cron": "^3.0.3",
         "pg": "^8.13.3",
         "rrule": "^2.7.2",
         "uuid": "^9.0.0",

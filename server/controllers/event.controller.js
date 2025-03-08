@@ -1,5 +1,5 @@
 // server/controllers/event.controller.js
-const pool = require('../index');
+const { pool } = require('../index');
 
 const eventController = {
   // Get all events
@@ -98,17 +98,41 @@ const eventController = {
     }
   },
 
-  // Get events by date range
+  // Get events by date range - FIXED to handle overlap correctly
   getEventsByDateRange: async (req, res) => {
     const { startDate, endDate } = req.params;
     try {
+      // Convert to valid dates
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Validate date inputs
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ error: 'Invalid date format' });
+      }
+      
+      // Modified query to catch all events that overlap with the date range
       const query = `
-        SELECT e.*
+        SELECT e.*, c.name as calendar_name, c.timezone_id
         FROM events e
-        WHERE e.start_time >= $1 AND e.end_time <= $2
+        JOIN calendars c ON e.calendar_id = c.calendar_id
+        WHERE 
+          -- Event starts within range
+          (e.start_time >= $1 AND e.start_time <= $2)
+          OR
+          -- Event ends within range
+          (e.end_time >= $1 AND e.end_time <= $2)
+          OR
+          -- Event spans the entire range
+          (e.start_time <= $1 AND e.end_time >= $2)
         ORDER BY e.start_time
       `;
-      const result = await pool.query(query, [startDate, endDate]);
+      
+      const result = await pool.query(query, [start, end]);
+      
+      // Add debugging info
+      console.log(`Found ${result.rows.length} events between ${start.toISOString()} and ${end.toISOString()}`);
+      
       res.json(result.rows);
     } catch (error) {
       console.error('Error getting events by date range:', error);
